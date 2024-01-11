@@ -88,13 +88,12 @@ pub async fn get_user_views(
     preset_views: Option<Vec<String>>,
     include_hidden: Option<bool>,
 ) -> Result<crate::models::BaseItemDtoQueryResult, Error<GetUserViewsError>> {
-    let local_var_configuration = configuration;
-
-    let local_var_client = &local_var_configuration.client;
+    let device_name = whoami::devicename().replace(' ', "_");
+    let local_var_client = &configuration.client;
 
     let local_var_uri_str = format!(
         "{}/Users/{userId}/Views",
-        local_var_configuration.base_path,
+        configuration.base_path,
         userId = crate::apis::urlencode(user_id)
     );
     let mut local_var_req_builder =
@@ -127,17 +126,19 @@ pub async fn get_user_views(
         local_var_req_builder =
             local_var_req_builder.query(&[("includeHidden", &local_var_str.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+    if let Some(ref local_var_user_agent) = configuration.user_agent {
         local_var_req_builder =
             local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
     }
-    if let Some(ref local_var_apikey) = local_var_configuration.api_key {
+    if let Some(ref local_var_apikey) = configuration.api_key {
         let local_var_key = local_var_apikey.key.clone();
         let local_var_value = match local_var_apikey.prefix {
             Some(ref local_var_prefix) => format!("{} {}", local_var_prefix, local_var_key),
             None => local_var_key,
         };
-        local_var_req_builder = local_var_req_builder.header("Authorization", local_var_value);
+        local_var_req_builder = local_var_req_builder.
+            header("Authorization",
+                format!("MediaBrowser Client=\"jellyfin-rs\", Device=\"{}\", DeviceId=\"{:x}\", Version=\"1\", Token=\"{}\"",device_name,md5::compute(device_name.clone()),local_var_value));
     };
 
     let local_var_req = local_var_req_builder.build()?;

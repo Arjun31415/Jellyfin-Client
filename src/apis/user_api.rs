@@ -219,9 +219,7 @@ pub async fn authenticate_user_by_name(
             device_name,
             md5::compute(device_name.clone())));
 
-    dbg!(&local_var_req);
     let local_var_resp = local_var_req.send().await?;
-    dbg!(&local_var_resp);
     let local_var_status = local_var_resp.status();
     let local_var_content = local_var_resp.text().await?;
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {

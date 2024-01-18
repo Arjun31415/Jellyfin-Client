@@ -1020,14 +1020,12 @@ pub async fn get_item_image(
     background_color: Option<&str>,
     foreground_layer: Option<&str>,
     image_index: Option<i32>,
-) -> Result<std::path::PathBuf, Error<GetItemImageError>> {
-    let local_var_configuration = configuration;
-
-    let local_var_client = &local_var_configuration.client;
+) -> Result<bytes::Bytes, Error<GetItemImageError>> {
+    let local_var_client = &configuration.client;
 
     let local_var_uri_str = format!(
         "{}/Items/{itemId}/Images/{imageType}",
-        local_var_configuration.base_path,
+        configuration.base_path,
         itemId = crate::apis::urlencode(item_id),
         imageType = image_type.to_string()
     );
@@ -1101,20 +1099,33 @@ pub async fn get_item_image(
         local_var_req_builder =
             local_var_req_builder.query(&[("imageIndex", &local_var_str.to_string())]);
     }
-    if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+    if let Some(ref local_var_user_agent) = configuration.user_agent {
         local_var_req_builder =
             local_var_req_builder.header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
     }
+    let device_name = whoami::devicename().replace(' ', "_");
+    let local_var_req_builder = local_var_req_builder.header(
+        "Authorization",
+        format!(
+            "MediaBrowser Client=\"jellyfin-rs\", Device=\"{}\", DeviceId=\"{:x}\", Version=\"1\"",
+            device_name,
+            md5::compute(device_name.clone())
+        ),
+    );
 
     let local_var_req = local_var_req_builder.build()?;
     let local_var_resp = local_var_client.execute(local_var_req).await?;
 
     let local_var_status = local_var_resp.status();
-    let local_var_content = local_var_resp.text().await?;
+    // dbg!(&local_var_content);
 
     if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-        serde_json::from_str(&local_var_content).map_err(Error::from)
+        let bytes = local_var_resp.bytes().await.map_err(Error::from);
+        return bytes;
+
+        // serde_json::from_str(&local_var_content).map_err(Error::from)
     } else {
+        let local_var_content = local_var_resp.text().await?;
         let local_var_entity: Option<GetItemImageError> =
             serde_json::from_str(&local_var_content).ok();
         let local_var_error = ResponseContent {
